@@ -1,0 +1,54 @@
+---
+- name: Check needed vars value
+  debug: 
+    msg:
+    - "Reposistory: {{ repo }}"
+    - "Asset selector: {{ selector }}"
+  failed_when: repo is not defined or selector is not defined
+
+- name: Ensure directories are created
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - "{{ cache_path }}"
+    - "{{ bin_dir_path }}"
+
+- name: Check latest json from api
+  uri:    
+    url: "{{ api_url }}"
+    return_content: true   
+  register: json_reponse
+
+- name: Select asset
+  set_fact:
+    binary_url:  "{{ json_reponse | json_query('json.assets[*].browser_download_url') | list | select('regex', selector) | first }}"
+    # binary_url: "{{ json_reponse.json.assets | map(attribute='browser_download_url') | list | select('regex', selector) | first  }}"
+
+- name: Unpack tarbal
+  unarchive:
+    src: "{{ binary_url }}"
+    dest: "/tmp/"
+    remote_src: yes
+    list_files: true
+  register: unpack_data
+
+- name: Check which file is executable
+  shell: "file /tmp/{{ item }} | grep -q executable"
+  with_items: "{{ unpack_data.files }}"
+  register: output
+  ignore_errors: true
+
+- name: Select binaries
+  set_fact:
+    binaries: "{{ output.results | selectattr('failed', 'equalto', false) | list | map(attribute='item') | list }}"
+
+# - name: Check binaries var value
+#   debug: 
+#     msg: "{{ binaries }}"
+
+- name: Copy binaries to {{ bin_dir_path }}
+  copy:
+    src: "/tmp/{{ item }}"
+    dest: "{{ bin_dir_path }}/"
+  with_items: "{{ binaries }}"
