@@ -10,22 +10,22 @@
   file:
     path: "{{ item }}"
     state: directory
-  with_items:
+  loop:
     - "{{ cache_path }}"
     - "{{ bin_dir_path }}"
 
-- name: Check latest json from api
+- name: Check latest json from api for {{ repo }}
   uri:    
     url: "{{ api_url }}"
     return_content: true   
   register: json_reponse
 
-- name: Select asset
+- name: Select asset for {{ repo }}
   set_fact:
     binary_url:  "{{ json_reponse | json_query('json.assets[*].browser_download_url') | list | select('regex', selector) | first }}"
     # binary_url: "{{ json_reponse.json.assets | map(attribute='browser_download_url') | list | select('regex', selector) | first  }}"
 
-- name: Unpack tarbal
+- name: Unpack tarbal of {{ repo }}
   unarchive:
     src: "{{ binary_url }}"
     dest: "/tmp/"
@@ -33,13 +33,13 @@
     list_files: true
   register: unpack_data
 
-- name: Check which file is executable
+- name: Check which file is executable for {{ repo }}
   shell: "file /tmp/{{ item }} | grep -q executable"
-  with_items: "{{ unpack_data.files }}"
+  loop: "{{ unpack_data.files }}"
   register: output
   ignore_errors: true
 
-- name: Select binaries
+- name: Select binaries of {{ repo }}
   set_fact:
     binaries: "{{ output.results | selectattr('failed', 'equalto', false) | list | map(attribute='item') | list }}"
 
@@ -47,8 +47,8 @@
 #   debug: 
 #     msg: "{{ binaries }}"
 
-- name: Copy binaries to {{ bin_dir_path }}
+- name: Copy binaries to {{ bin_dir_path }} {{ binaries.join(' ') }}
   copy:
     src: "/tmp/{{ item }}"
     dest: "{{ bin_dir_path }}/"
-  with_items: "{{ binaries }}"
+  loop: "{{ binaries }}"

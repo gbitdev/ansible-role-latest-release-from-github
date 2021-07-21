@@ -1,4 +1,5 @@
 ---
-api_url: https://api.github.com/repos/{{ repo }}/releases/latest
+api_url: "https://api.github.com/repos/{{ repo }}/releases/latest"
 bin_dir_path: "{{ ansible_env.HOME }}/.local/bin"
-cache_path: /tmp
+cache_path: "/tmp"
+selector: "Linux_x86_64"
