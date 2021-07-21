@@ -1,11 +1,4 @@
 ---
-- name: Check needed vars value
-  debug: 
-    msg:
-    - "Reposistory: {{ repo }}"
-    - "Asset selector: {{ selector }}"
-  failed_when: repo is not defined or selector is not defined
-
 - name: Ensure directories are created
   file:
     path: "{{ item }}"
@@ -13,42 +6,11 @@
   loop:
     - "{{ cache_path }}"
     - "{{ bin_dir_path }}"
+  # async: 10
 
-- name: Check latest json from api for {{ repo }}
-  uri:    
-    url: "{{ api_url }}"
-    return_content: true   
-  register: json_reponse
-
-- name: Select asset for {{ repo }}
-  set_fact:
-    binary_url:  "{{ json_reponse | json_query('json.assets[*].browser_download_url') | list | select('regex', selector) | first }}"
-    # binary_url: "{{ json_reponse.json.assets | map(attribute='browser_download_url') | list | select('regex', selector) | first  }}"
-
-- name: Unpack tarbal of {{ repo }}
-  unarchive:
-    src: "{{ binary_url }}"
-    dest: "/tmp/"
-    remote_src: yes
-    list_files: true
-  register: unpack_data
-
-- name: Check which file is executable for {{ repo }}
-  shell: "file /tmp/{{ item }} | grep -q executable"
-  loop: "{{ unpack_data.files }}"
-  register: output
-  ignore_errors: true
-
-- name: Select binaries of {{ repo }}
-  set_fact:
-    binaries: "{{ output.results | selectattr('failed', 'equalto', false) | list | map(attribute='item') | list }}"
-
-# - name: Check binaries var value
-#   debug: 
-#     msg: "{{ binaries }}"
-
-- name: Copy binaries to {{ bin_dir_path }} {{ binaries.join(' ') }}
-  copy:
-    src: "/tmp/{{ item }}"
-    dest: "{{ bin_dir_path }}/"
-  loop: "{{ binaries }}"
+- name: Download binary
+  include_tasks: download_binary.yml
+  vars:
+    repo: "{{ item }}"
+  loop: "{{ repos.split(',') }}"
+  # async: 10
